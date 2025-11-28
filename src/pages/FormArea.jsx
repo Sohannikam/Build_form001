@@ -2,16 +2,21 @@ import React, { useState, useRef } from "react";
 import { useRecoilState } from "recoil";
 import { layoutState } from "../atoms/layoutState";
 import RenderPanel from "../components/layout/RenderPanel";
+import { panelsState } from "../atoms/panelsState";  // ADD THIS
+
 
 const FormArea = () => {
   const [showModal, setShowModal] = useState(false);
 
   const [layoutData, setLayoutData] = useRecoilState(layoutState);
+  const [panels, setPanels] = useRecoilState(panelsState);
+
 
   const { layout, leftWidth, topHeight } = layoutData;
 
   const containerRef = useRef(null);
   const modalRef = useRef(null);
+  
 
   // Close modal
   const handleClickOutside = (e) => {
@@ -50,6 +55,8 @@ const FormArea = () => {
     }
   };
 
+
+  
   return (
     <div className="h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg relative">
 
@@ -69,11 +76,12 @@ const FormArea = () => {
           boxShadow: "rgba(0, 0, 0, 0.35) 0px 5px 15px",
         }}
       >
-        {!layout && (
-          <div className="h-full flex items-center justify-center">
-            Drop Fields Here
-          </div>
-        )}
+       {!layout && (
+  <div className="h-full">
+    <RenderPanel panelKey="normal" />
+  </div>
+)}
+
 
         {/* HORIZONTAL LAYOUT */}
         {layout === "horizontal" && (
@@ -142,6 +150,14 @@ const FormArea = () => {
             <button
               onClick={() => {
                 setLayoutData((prev) => ({ ...prev, layout: "horizontal", leftWidth: 60 }));
+
+                   // RESET PANELS
+    setPanels({
+      panel1: { type: "empty", image: null, fields: [] },
+      panel2: { type: "empty", image: null, fields: [] },
+        normal: { type: "form", image: null, fields: [] } // ADD THIS
+    });
+    
                 setShowModal(false);
               }}
               className="w-full mb-3 border rounded-lg p-3 hover:bg-gray-100"
@@ -159,6 +175,13 @@ const FormArea = () => {
             <button
               onClick={() => {
                 setLayoutData((prev) => ({ ...prev, layout: "vertical", topHeight: 30 }));
+                // RESET PANELS
+    setPanels({
+      panel1: { type: "empty", image: null, fields: [] },
+      panel2: { type: "empty", image: null, fields: [] },
+        normal: { type: "form", image: null, fields: [] } // ADD THIS
+
+    });
                 setShowModal(false);
               }}
               className="w-full mb-3 border rounded-lg p-3 hover:bg-gray-100"
