@@ -1,45 +1,19 @@
 import React, { useState, useRef } from "react";
+import { useRecoilState } from "recoil";
+import { layoutState } from "../atoms/layoutState";
 import RenderPanel from "../components/layout/RenderPanel";
 
 const FormArea = () => {
   const [showModal, setShowModal] = useState(false);
-  const [layout, setLayout] = useState(null);
 
-  // new code starts here 
-  const [panels, setPanels] = useState({
-  panel1: { type: "empty", image: null, fields: [] },
-  panel2: { type: "empty", image: null, fields: [] }
-});
+  const [layoutData, setLayoutData] = useRecoilState(layoutState);
 
-  const selectPanelType = (panelKey, type) => {
-    const otherKey = panelKey === "panel1" ? "panel2" : "panel1";
-  
-    setPanels({
-      [panelKey]: { ...panels[panelKey], type },
-      [otherKey]: { ...panels[otherKey], type: type === "image" ? "form" : "image" }
-    });
-  };
-  
-  const handleImageUpload = (panelKey, file) => {
-    const url = URL.createObjectURL(file);
-    setPanels({
-      ...panels,
-      [panelKey]: { ...panels[panelKey], image: url, type: "image" }
-    });
-  };
-
-// ends here 
-
-  // Horizontal layout state
-  const [leftWidth, setLeftWidth] = useState(60);
-
-  // Vertical layout state
-  const [topHeight, setTopHeight] = useState(30);
+  const { layout, leftWidth, topHeight } = layoutData;
 
   const containerRef = useRef(null);
   const modalRef = useRef(null);
 
-  // Close modal when clicking outside
+  // Close modal
   const handleClickOutside = (e) => {
     if (modalRef.current && !modalRef.current.contains(e.target)) {
       setShowModal(false);
@@ -57,7 +31,7 @@ const FormArea = () => {
       100;
 
     if (newWidth > 10 && newWidth < 90) {
-      setLeftWidth(newWidth);
+      setLayoutData((prev) => ({ ...prev, leftWidth: newWidth }));
     }
   };
 
@@ -72,7 +46,7 @@ const FormArea = () => {
       100;
 
     if (newHeight > 10 && newHeight < 90) {
-      setTopHeight(newHeight);
+      setLayoutData((prev) => ({ ...prev, topHeight: newHeight }));
     }
   };
 
@@ -87,7 +61,7 @@ const FormArea = () => {
         Select Layout
       </button>
 
-      {/* Inner container */}
+      {/* Main Builder Container */}
       <div
         ref={containerRef}
         className="w-[90%] h-[70%] bg-white rounded-lg p-3 text-gray-500 relative"
@@ -95,93 +69,66 @@ const FormArea = () => {
           boxShadow: "rgba(0, 0, 0, 0.35) 0px 5px 15px",
         }}
       >
-        {/* DEFAULT VIEW */}
         {!layout && (
           <div className="h-full flex items-center justify-center">
             Drop Fields Here
           </div>
         )}
 
-        {/* HORIZONTAL SPLIT */}
+        {/* HORIZONTAL LAYOUT */}
         {layout === "horizontal" && (
-       <div className="flex h-full">
-  <div style={{ width: `${leftWidth}%` }}>
- <RenderPanel
-  panelKey="panel1"
-  panelData={panels.panel1}
-  selectPanelType={selectPanelType}
-  handleImageUpload={handleImageUpload}
-/>
-  </div>
+          <div className="flex h-full">
+            <div style={{ width: `${leftWidth}%` }}>
+              <RenderPanel panelKey="panel1" />
+            </div>
 
-  {/* Divider */}
-  <div
-    onMouseDown={() => {
-      window.onmousemove = handleHorizontalDrag;
-      window.onmouseup = () => (window.onmousemove = null);
-    }}
-    className="w-[6px] bg-gray-400 cursor-col-resize mx-1"
-  ></div>
+            {/* Divider */}
+            <div
+              onMouseDown={() => {
+                window.onmousemove = handleHorizontalDrag;
+                window.onmouseup = () => (window.onmousemove = null);
+              }}
+              className="w-[6px] bg-gray-400 cursor-col-resize mx-1"
+            />
 
-  <div style={{ width: `${100 - leftWidth}%` }}>
-  <RenderPanel
-  panelKey="panel2"
-  panelData={panels.panel2}
-  selectPanelType={selectPanelType}
-  handleImageUpload={handleImageUpload}
-/>
-
-  </div>
-</div>
-
+            <div style={{ width: `${100 - leftWidth}%` }}>
+              <RenderPanel panelKey="panel2" />
+            </div>
+          </div>
         )}
 
-        {/* VERTICAL SPLIT */}
+        {/* VERTICAL LAYOUT */}
         {layout === "vertical" && (
           <div className="flex flex-col h-full">
+            <div style={{ height: `${topHeight}%` }}>
+              <RenderPanel panelKey="panel1" />
+            </div>
 
-  <div style={{ height: `${topHeight}%` }}>
-    <RenderPanel
-  panelKey="panel1"
-  panelData={panels.panel1}
-  selectPanelType={selectPanelType}
-  handleImageUpload={handleImageUpload}
-/>
+            <div
+              onMouseDown={() => {
+                window.onmousemove = handleVerticalDrag;
+                window.onmouseup = () => (window.onmousemove = null);
+              }}
+              className="h-[6px] bg-gray-400 cursor-row-resize my-1"
+            />
 
-  </div>
-
-  <div
-    onMouseDown={() => {
-      window.onmousemove = handleVerticalDrag;
-      window.onmouseup = () => (window.onmousemove = null);
-    }}
-    className="h-[6px] bg-gray-400 cursor-row-resize my-1"
-  ></div>
-
-  <div style={{ height: `${100 - topHeight}%` }}>
-    <RenderPanel
-  panelKey="panel2"
-  panelData={panels.panel2}
-  selectPanelType={selectPanelType}
-  handleImageUpload={handleImageUpload}
-/>
-  </div>
-</div>
-
+            <div style={{ height: `${100 - topHeight}%` }}>
+              <RenderPanel panelKey="panel2" />
+            </div>
+          </div>
         )}
       </div>
 
-      {/* MODAL */}
+      {/* Layout Modal */}
       {showModal && (
         <div
-          className="absolute inset-0  bg-opacity-40 flex items-center justify-center"
+          className="absolute inset-0 bg-opacity-40 flex items-center justify-center"
           onClick={handleClickOutside}
         >
           <div
             ref={modalRef}
             className="bg-white w-80 p-6 rounded-lg shadow-lg relative"
           >
-            {/* Cross icon */}
             <button
               className="absolute top-3 right-3 text-gray-600 hover:text-black text-xl"
               onClick={() => setShowModal(false)}
@@ -191,11 +138,10 @@ const FormArea = () => {
 
             <h2 className="text-lg font-bold mb-4">Select Layout</h2>
 
-            {/* Option 1 - Horizontal */}
+            {/* Horizontal */}
             <button
               onClick={() => {
-                setLayout("horizontal");
-                setLeftWidth(60);
+                setLayoutData((prev) => ({ ...prev, layout: "horizontal", leftWidth: 60 }));
                 setShowModal(false);
               }}
               className="w-full mb-3 border rounded-lg p-3 hover:bg-gray-100"
@@ -209,11 +155,10 @@ const FormArea = () => {
               </p>
             </button>
 
-            {/* Option 2 - Vertical */}
+            {/* Vertical */}
             <button
               onClick={() => {
-                setLayout("vertical");
-                setTopHeight(30);
+                setLayoutData((prev) => ({ ...prev, layout: "vertical", topHeight: 30 }));
                 setShowModal(false);
               }}
               className="w-full mb-3 border rounded-lg p-3 hover:bg-gray-100"
@@ -227,10 +172,10 @@ const FormArea = () => {
               </p>
             </button>
 
-            {/* Option 3 - Normal Layout */}
+            {/* Normal */}
             <button
               onClick={() => {
-                setLayout(null);
+                setLayoutData((prev) => ({ ...prev, layout: null }));
                 setShowModal(false);
               }}
               className="w-full border rounded-lg p-3 hover:bg-gray-100"

@@ -1,13 +1,31 @@
-import React, { useState } from 'react'
+import React, { useState } from "react";
+import { useRecoilState } from "recoil";
+import { panelsState } from "../../atoms/panelsState";
 
-const RenderPanel = ({ 
-  panelKey, 
-  panelData, 
-  selectPanelType, 
-  handleImageUpload 
-}) => {
+const RenderPanel = ({ panelKey }) => {
+  const [panels, setPanels] = useRecoilState(panelsState);
+  const panelData = panels[panelKey];
 
   const [hover, setHover] = useState(false);
+
+  const selectPanelType = (type) => {
+    const other = panelKey === "panel1" ? "panel2" : "panel1";
+
+    setPanels((prev) => ({
+      ...prev,
+      [panelKey]: { ...prev[panelKey], type },
+      [other]: { ...prev[other], type: type === "image" ? "form" : "image" }
+    }));
+  };
+
+  const handleImageUpload = (file) => {
+    const url = URL.createObjectURL(file);
+
+    setPanels((prev) => ({
+      ...prev,
+      [panelKey]: { ...prev[panelKey], image: url, type: "image" }
+    }));
+  };
 
   return (
     <div
@@ -15,24 +33,21 @@ const RenderPanel = ({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-
-      {hover && (
+      {hover && panelData.type === "empty" && (
         <div className="absolute top-2 right-2 flex gap-2">
-        
           <button
             className="bg-white p-2 rounded shadow hover:bg-gray-100"
-            onClick={() => selectPanelType(panelKey, "image")}
+            onClick={() => selectPanelType("image")}
           >
             📷
           </button>
 
           <button
             className="bg-white p-2 rounded shadow hover:bg-gray-100"
-            onClick={() => selectPanelType(panelKey, "form")}
+            onClick={() => selectPanelType("form")}
           >
             🧾
           </button>
-
         </div>
       )}
 
@@ -49,17 +64,11 @@ const RenderPanel = ({
                 type="file"
                 className="hidden"
                 accept="image/*"
-                onChange={(e) =>
-                  handleImageUpload(panelKey, e.target.files[0])
-                }
+                onChange={(e) => handleImageUpload(e.target.files[0])}
               />
             </label>
           ) : (
-            <img
-              src={panelData.image}
-              alt="uploaded"
-              className="max-h-full rounded"
-            />
+            <img src={panelData.image} alt="uploaded" className="max-h-full rounded" />
           )}
         </div>
       )}
