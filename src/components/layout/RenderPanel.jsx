@@ -1,85 +1,272 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRecoilState } from "recoil";
 import { panelsState } from "../../atoms/panelsState";
+import { activePanelState } from "../../atoms/activePanelState";
+import imageicon from "../../assets/image-icon.jpg"
+
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from "@dnd-kit/core";
+
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
+
+
 
 const RenderPanel = ({ panelKey }) => {
+
+  const containerRef = useRef(null);
+const [panelHeight, setPanelHeight] = useState(0);
+
+
+  const [activePanel, setActivePanel] = useRecoilState(activePanelState);
+
+  
   const [panels, setPanels] = useRecoilState(panelsState);
-  const panelData = panels[panelKey];
 
-  const [hover, setHover] = useState(false);
+   const fileInputRef = useRef(null);
 
-  const selectPanelType = (type) => {
-    const other = panelKey === "panel1" ? "panel2" : "panel1";
+   const objectFitStyle =
+  panelHeight < 200 ? "object-fill" : "object-contain";
 
-    setPanels((prev) => ({
-      ...prev,
-      [panelKey]: { ...prev[panelKey], type },
-      [other]: { ...prev[other], type: type === "image" ? "form" : "image" }
-    }));
-  };
 
+   useEffect(() => {
+  if (containerRef.current) {
+    setPanelHeight(containerRef.current.offsetHeight);
+  }
+}, [panels, panelKey]);
+
+
+     const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+   const panel = panels[panelKey];
+   // -----------------------------
+  // Handle Image Upload
+  // -----------------------------
   const handleImageUpload = (file) => {
     const url = URL.createObjectURL(file);
 
     setPanels((prev) => ({
       ...prev,
-      [panelKey]: { ...prev[panelKey], image: url, type: "image" }
+      [panelKey]: {
+        ...prev[panelKey],
+        type: "image",
+        image: url,
+        fields: [] // reset fields for safety
+      }
     }));
+  };
+
+  const deleteField = (id) => {
+    setPanels((prev) => ({
+      ...prev,
+      [panelKey]: {
+        ...prev[panelKey],
+        fields: prev[panelKey].fields.filter((f) => f.id !== id)
+      }
+    }));
+  };
+
+
+  // ----------------------------
+  // SORT HANDLER
+  // ----------------------------
+  const onDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setPanels((prev) => {
+      const items = prev[panelKey].fields;
+      const oldIndex = items.findIndex((f) => f.id === active.id);
+      const newIndex = items.findIndex((f) => f.id === over.id);
+
+      return {
+        ...prev,
+        [panelKey]: {
+          ...prev[panelKey],
+          fields: arrayMove(items, oldIndex, newIndex)
+        }
+      };
+    });
+  };
+
+
+const handleDrop = (e) => {
+  e.preventDefault();
+  let data = e.dataTransfer.getData("application/json");
+  if (!data) return;
+
+  const { fieldType } = JSON.parse(data);  // <-- FIXED
+
+  const otherKey = panelKey === "panel1" ? "panel2" : "panel1";
+
+  // --------------------------
+  // WHEN DROPPING IMAGE
+  // --------------------------
+if (fieldType === "image") {
+      setPanels((prev) => ({
+        ...prev,
+        [panelKey]: { type: "image", image: null, fields: [] },
+
+        [otherKey]: {
+          ...prev[otherKey],
+          type: "form",
+          fields: prev[otherKey].fields || []
+        }
+      }));
+      return;
+    }
+
+  // --------------------------
+  // WHEN DROPPING FORM FIELD
+  // --------------------------
+  setPanels((prev) => ({
+      ...prev,
+
+      [panelKey]: {
+        ...prev[panelKey],
+        type: "form",
+       fields: [
+  ...prev[panelKey].fields,
+  { id: Date.now(), type: fieldType, value: "" }
+]
+      },
+
+      [otherKey]:
+        prev[otherKey].type === "empty"
+          ? { type: "image", image: null, fields: [] }
+          : prev[otherKey]
+    }));
+};
+
+
+  return (
+    <div
+        onClick={() => setActivePanel(panelKey)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+      className="w-full h-full border rounded-lg p-3 bg-gray-100 cursor-pointer"
+    >
+      {panels[panelKey].type === "empty" && (
+        <div className="text-gray-400 flex justify-center items-center h-full">
+          Drop Here
+        </div>
+      )}
+
+        {/* IMAGE PANEL */}
+{panels[panelKey].type === "image" && (
+  <div
+    ref={containerRef}
+    className="w-full h-full flex items-center justify-center bg-white rounded overflow-hidden"
+  >
+    {panels[panelKey].image ? (
+      <img
+        src={panels[panelKey].image}
+        className={`w-full h-full ${objectFitStyle}`}
+      />
+    ) : (
+      <img
+        src={imageicon}
+        alt="logo"
+        className={`w-full h-full object-contain cursor-pointer`}
+      />
+    )}
+  </div>
+)}
+
+  {panel.type === "form" && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onDragEnd}
+        >
+          <SortableContext
+            items={panel.fields.map((f) => f.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {panel.fields.map((field) => (
+                <SortableField
+                  key={field.id}
+                  field={field}
+                  deleteField={deleteField}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+    </div>
+  );
+};
+
+// --------------------------------------------------------
+// SORTABLE FIELD COMPONENT (REUSABLE)
+// --------------------------------------------------------
+const SortableField = ({ field, deleteField }) => {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: field.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
   };
 
   return (
     <div
-      className="relative w-full h-full bg-gray-100 rounded-lg border flex items-center justify-center"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}   // <-- NOW ENTIRE FIELD IS DRAGGABLE
+      className="bg-white p-3 rounded shadow relative cursor-grab active:cursor-grabbing"
     >
-      {hover && panelData.type === "empty" && (
-        <div className="absolute top-2 right-2 flex gap-2">
-          <button
-            className="bg-white p-2 rounded shadow hover:bg-gray-100"
-            onClick={() => selectPanelType("image")}
-          >
-            📷
-          </button>
+      {/* DELETE BUTTON */}
+      <button
+        onClick={() => deleteField(field.id)}
+        className="absolute right-1 top-1 text-red-500"
+      >
+        ❌
+      </button>
 
-          <button
-            className="bg-white p-2 rounded shadow hover:bg-gray-100"
-            onClick={() => selectPanelType("form")}
-          >
-            🧾
-          </button>
-        </div>
+      <label className="block text-sm font-medium capitalize mb-1">
+        {field.type}
+      </label>
+
+      {field.type === "name" && (
+        <input
+          className="border px-2 py-1 rounded w-full"
+          placeholder="Enter name"
+        />
       )}
 
-      {panelData.type === "empty" && (
-        <p className="text-gray-500">Empty Panel</p>
+      {field.type === "email" && (
+        <input
+          className="border px-2 py-1 rounded w-full"
+          placeholder="Enter email"
+        />
       )}
 
-      {panelData.type === "image" && (
-        <div className="flex flex-col items-center">
-          {!panelData.image ? (
-            <label className="cursor-pointer bg-blue-500 text-white px-3 py-2 rounded">
-              Upload Image
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={(e) => handleImageUpload(e.target.files[0])}
-              />
-            </label>
-          ) : (
-            <img src={panelData.image} alt="uploaded" className="max-h-full rounded" />
-          )}
-        </div>
-      )}
-
-      {panelData.type === "form" && (
-        <div className="w-full h-full flex items-center justify-center text-gray-600">
-          Drop Fields Here
-        </div>
+      {field.type === "mobile" && (
+        <input
+          className="border px-2 py-1 rounded w-full"
+          placeholder="Enter mobile"
+        />
       )}
     </div>
   );
 };
 
 export default RenderPanel;
+
